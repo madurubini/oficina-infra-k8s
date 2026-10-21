@@ -1,0 +1,2 @@
+# Copie para backend.hcl (ignorado pelo git) e troque pelo nome do seu bucket.
+bucket = "oficina-tfstate-SEU-RM"

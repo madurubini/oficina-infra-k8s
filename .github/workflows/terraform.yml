@@ -1,0 +1,133 @@
+# Pipeline da infraestrutura do cluster.
+#
+# - Pull request (para homolog ou main): fmt, validate e plan. É o check
+#   obrigatório da ruleset: sem ele verde, o merge fica bloqueado.
+# - Push em homolog: apply (deploy de homologação).
+# - Push em main: apply (deploy de produção).
+# - Manual (workflow_dispatch): destroy, para a rotina subir → testar → derrubar
+#   do Learner Lab.
+#
+# Homolog e produção aplicam o MESMO state: há um único cluster, e os ambientes
+# se separam por namespace dentro dele (ver README). Assim homolog aplica
+# primeiro e o merge em main confirma a mesma infraestrutura, sem dobrar custo.
+name: Terraform
+
+on:
+  pull_request:
+    branches: [homolog, main]
+  push:
+    branches: [homolog, main]
+  workflow_dispatch:
+    inputs:
+      confirmacao:
+        description: 'Digite "destruir" para apagar toda a infraestrutura do cluster'
+        required: true
+
+# Dois applies ao mesmo tempo no mesmo state corrompem o lock; enfileira.
+concurrency:
+  group: terraform-infra-k8s
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    name: terraform-plan
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Formatação
+        run: terraform fmt -check -recursive
+
+      - name: Credenciais da AWS (sessão do Learner Lab)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Init
+        run: terraform init -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+
+      - name: Validate
+        run: terraform validate
+
+      - name: Plan
+        run: terraform plan -out=tfplan
+
+      - name: Resumo do plan
+        run: |
+          {
+            echo '### Terraform plan'
+            echo '```'
+            terraform show -no-color tfplan
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  apply:
+    name: terraform-apply
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    # O environment registra cada deploy na aba "Deployments" do repositório.
+    environment: ${{ github.ref_name == 'main' && 'producao' || 'homolog' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Credenciais da AWS (sessão do Learner Lab)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Init
+        run: terraform init -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+
+      - name: Apply
+        run: terraform apply -auto-approve
+
+      - name: Saídas
+        run: |
+          {
+            echo '### Infraestrutura aplicada'
+            echo '```'
+            terraform output
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  destroy:
+    name: terraform-destroy
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.confirmacao == 'destruir'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Credenciais da AWS (sessão do Learner Lab)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Init
+        run: terraform init -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+
+      - name: Destroy
+        run: terraform destroy -auto-approve
