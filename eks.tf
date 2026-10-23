@@ -47,3 +47,14 @@ resource "aws_eks_node_group" "principal" {
   # group fica preso em CREATE_FAILED.
   depends_on = [aws_route_table_association.publica]
 }
+
+# O HPA do oficina-app decide quantas réplicas subir olhando CPU e memória dos
+# pods, e quem mede isso é o metrics-server. O EKS não o instala sozinho; como
+# add-on, ele nasce e morre junto com o cluster. Depende dos nós porque roda
+# como pod.
+resource "aws_eks_addon" "metrics_server" {
+  cluster_name = aws_eks_cluster.principal.name
+  addon_name   = "metrics-server"
+
+  depends_on = [aws_eks_node_group.principal]
+}
