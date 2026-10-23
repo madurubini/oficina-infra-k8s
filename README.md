@@ -42,6 +42,8 @@ Decisões:
   Separa os ambientes sem dobrar o custo.
 - **Recursos crus do provider** (sem `terraform-aws-modules/eks`): o módulo cria roles do IAM, o que
   o Learner Lab bloqueia. Cluster e nós usam a `LabRole`.
+- **metrics-server como add-on do EKS**: o HPA do `oficina-app` precisa dele para medir CPU e
+  memória dos pods, e o EKS não o instala sozinho. Como add-on, ele sobe e cai junto com o cluster.
 
 ## Saídas (consumidas pelos outros repos)
 
@@ -90,6 +92,7 @@ terraform apply
 # 4. Conferir
 aws eks update-kubeconfig --region us-east-1 --name oficina-eks
 kubectl get nodes                    # 2 nós Ready
+kubectl top nodes                    # o metrics-server responde (pode levar ~1 min)
 
 # 5. Derrubar ao terminar (depois de derrubar ④, ③ e ②)
 terraform destroy
