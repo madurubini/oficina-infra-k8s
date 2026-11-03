@@ -125,3 +125,13 @@ no S3 e por secrets do GitHub (nenhum importa código de outro):
 **Ordem para subir:** ① → ② → ③ → ④. **Ordem para derrubar:** ④ → ③ → ② → ①.
 
 Branches: **`main` = produção** (só recebe PR), **`homolog` = homologação**.
+
+## Documentação
+
+- **Swagger e a API:** ficam no [`oficina-app`](https://github.com/madurubini/oficina-app#collection-das-apis); este
+  repositório só cria a infraestrutura.
+- **Diagrama de componentes** da nuvem inteira: [`arquitetura.md`, seção 7](https://github.com/madurubini/oficina-app/blob/homolog/docs/arquitetura.md#7-componentes-na-nuvem-fase-3).
+- **Por que AWS e o Learner Lab:** [RFC 0001](https://github.com/madurubini/oficina-app/blob/homolog/docs/rfc/0001-escolha-da-nuvem.md).
+- **Decisões que moldam este repositório:** [ADR 0004 — ambientes no mesmo cluster](https://github.com/madurubini/oficina-app/blob/homolog/docs/adr/0004-ambientes-no-mesmo-cluster.md),
+  [ADR 0005 — rede sem NAT](https://github.com/madurubini/oficina-app/blob/homolog/docs/adr/0005-rede-sem-nat-gateway.md) e
+  [ADR 0003 — HPA e metrics-server](https://github.com/madurubini/oficina-app/blob/homolog/docs/adr/0003-escalabilidade-com-hpa.md).
